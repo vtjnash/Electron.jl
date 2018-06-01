@@ -127,8 +127,9 @@ function Application()
     sysnotify_server = listen(sysnotify_pipe_name)
 
     secure_cookie = rand(UInt8, 128)
-    secure_cookie_encoded = base64encode(secure_cookie)
-    _, proc = open(`$electron_path $mainjs $main_pipe_name $sysnotify_pipe_name $secure_cookie_encoded`, "w", STDOUT)
+    _, proc = open(`$electron_path $mainjs $main_pipe_name $sysnotify_pipe_name`, "w", STDOUT)
+    write(proc, secure_cookie)
+    close(proc.in)
 
     sock = accept(server)
     if read!(sock, zero(secure_cookie)) != secure_cookie

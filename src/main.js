@@ -56,8 +56,9 @@ function process_command(connection, cmd) {
 }
 
 sysnotify_connection = null
+secure_cookie = ""
 
-function secure_connect(addr, secure_cookie) {
+function secure_connect(addr) {
     var connection = net.connect(addr);
     connection.setEncoding('utf8')
     connection.write(secure_cookie);
@@ -67,25 +68,29 @@ function secure_connect(addr, secure_cookie) {
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
-app.on('ready', function () {
-    var secure_cookie = Buffer.from(process.argv[4], 'base64');
+app.on('ready', function() {
+    var chunks = [];
+    process.stdin.on('data', function(chunk) { chunks.push(chunk); });
+    process.stdin.on('end', function() {
+        secure_cookie = Buffer.concat(chunks);
 
-    var connection = secure_connect(process.argv[2], secure_cookie)
-    sysnotify_connection = secure_connect(process.argv[3], secure_cookie)
+        var connection = secure_connect(process.argv[2])
+        sysnotify_connection = secure_connect(process.argv[3])
 
-    connection.on('end', function () {
-        sysnotify_connection.write(JSON.stringify({ cmd: "appclosing" }) + '\n')
-        app.quit()
+        connection.on('end', function() {
+            // TODO: simply reconnect
+            sysnotify_connection.write(JSON.stringify({cmd: "appclosing"}) + '\n')
+            app.quit()
+        })
+
+        const rloptions = {input: connection, terminal: false, historySize: 0, crlfDelay: Infinity}
+        const rl = readline.createInterface(rloptions)
+
+        rl.on('line', function(line) {
+            cmd_as_json = JSON.parse(line)
+            process_command(connection, cmd_as_json)
+        })
     })
-
-    const rloptions = { input: connection, terminal: false, historySize: 0, crlfDelay: Infinity }
-    const rl = readline.createInterface(rloptions)
-
-    rl.on('line', function (line) {
-        cmd_as_json = JSON.parse(line)
-        process_command(connection, cmd_as_json)
-    })
-
 })
 
 app.on('window-all-closed', function() {
