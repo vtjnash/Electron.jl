@@ -2,6 +2,19 @@ using Electron
 using URIParser
 using Base.Test
 
+# define a macro for correctly creating local URI from a relative path
+"""
+    @LOCAL(filespec)
+
+Construct an absolute URI to `filespec` relative to the source file containing the macro call.
+"""
+macro LOCAL(filespec)
+    # v0.7: base = String(__source__.file)
+    #       filespec isa String && return URI_file(base, filespec) # can construct eagerly
+    #       return :(URI_file($base, $(esc(filespec))))
+    return :(URI_file(@__DIR__, $(esc(filespec))))
+end
+
 @testset "local URI" begin
     dir = pwd(URI)
     @test unescape(dir.path) == join(push!(split(pwd(), Base.Filesystem.path_separator_re), ""), "/")
@@ -9,11 +22,11 @@ using Base.Test
     @test string(dir) == "file://$(dir.path)"
 
     __dirname = @__DIR__
-    dir = Electron.URI_file(__dirname, "")
+    dir = URI_file(__dirname, "")
     @test URI(dir, path = dir.path * "test.html", query = "a", fragment = "b") ==
-        Electron.@LOCAL("test.html?a#b") ==
-        Electron.@LOCAL(begin; "test.html?a#b"; end) ==
-        Electron.URI_file(__dirname, "test.html?a#b")
+        @LOCAL("test.html?a#b") ==
+        @LOCAL(begin; "test.html?a#b"; end) ==
+        URI_file(__dirname, "test.html?a#b")
 end
 
 

@@ -1,4 +1,4 @@
-const {app, BrowserWindow} = require('electron')
+const {app, BrowserWindow, session} = require('electron')
 const path = require('path')
 const url = require('url')
 const net = require('net')
@@ -15,13 +15,12 @@ function createWindow(connection, opts) {
     // the closed event handler because the property
     // .id won't be accessible anymore when the window
     // has been closed.
-    var win_id = win.id
-
-    win.webContents.on("did-finish-load", function() {
+    win.webContents.once("did-finish-load", function() {
+        var win_id = win.id
         connection.write(JSON.stringify({data: win_id}) + '\n')
 
         win.on('closed', function() {
-            sysnotify_connection.write(JSON.stringify({cmd: "windowclosed", winid: win_id}) + '\n')
+            sysnotify_connection.write(JSON.stringify({ cmd: "windowclosed", winid: win_id }) + '\n')
         })
     })
 }
@@ -52,13 +51,14 @@ function process_command(connection, cmd) {
     }
     else if (cmd.cmd == 'newwindow') {
         createWindow(connection, cmd.options)
+        return;
     }
 }
 
 sysnotify_connection = null
 secure_cookie = ""
 
-function secure_connect(addr) {
+function secure_connect(addr, secure_cookie) {
     var connection = net.connect(addr);
     connection.setEncoding('utf8')
     connection.write(secure_cookie);
@@ -74,16 +74,16 @@ app.on('ready', function() {
     process.stdin.on('end', function() {
         secure_cookie = Buffer.concat(chunks);
 
-        var connection = secure_connect(process.argv[2])
-        sysnotify_connection = secure_connect(process.argv[3])
+        var connection = secure_connect(process.argv[2], secure_cookie)
+        sysnotify_connection = secure_connect(process.argv[3], secure_cookie)
 
         connection.on('end', function() {
             // TODO: simply reconnect
-            sysnotify_connection.write(JSON.stringify({cmd: "appclosing"}) + '\n')
+            sysnotify_connection.write(JSON.stringify({ cmd: "appclosing" }) + '\n')
             app.quit()
         })
 
-        const rloptions = {input: connection, terminal: false, historySize: 0, crlfDelay: Infinity}
+        const rloptions = { input: connection, terminal: false, historySize: 0, crlfDelay: Infinity }
         const rl = readline.createInterface(rloptions)
 
         rl.on('line', function(line) {

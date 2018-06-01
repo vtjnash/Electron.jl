@@ -199,7 +199,7 @@ Terminates the Electron application referenced by `app`.
 """
 function Base.close(app::Application)
     app.exists || error("Cannot close this application, the application does no longer exist.")
-    while length(windows(app))>0
+    while !isempty(windows(app))
         close(first(windows(app)))
     end
     close(app.connection)
@@ -311,7 +311,5 @@ function Base.close(win::Window)
     retval = req_response(win.app, message)
     return nothing
 end
-
-include("contrib.jl")
 
 end
